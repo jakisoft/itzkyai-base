@@ -4,9 +4,13 @@ const process = require("process")
 const { getDevice } = require("@whiskeysockets/baileys")
 const { readMore, clockString, toTitleCase } = require("../../lib/myfunc")
 
-const handler = async (m, { kiicode, userId, tagCategories, prefix, isOwner, pushname, mentionUser }) => {
+const handler = async (m, { kiicode, tagCategories, prefix, isOwner }) => {
   try {
     const userId = m.sender
+    const pushName = m.pushName || "Pengguna"
+    const nomor = userId.split("@")[0]
+    const mentionUser = [userId]
+    const botname = "YourBotName" // Declare botname variable here
 
     const start = performance.now()
     const end = performance.now()
