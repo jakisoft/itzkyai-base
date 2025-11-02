@@ -32,6 +32,7 @@ const loadPlugins = () => {
   plugins.clear()
   autoPlugins.length = 0
   Object.keys(tagCategories).forEach((tag) => (tagCategories[tag] = []))
+
   const pluginFiles = getAllPluginFiles(path.join(__dirname, "plugins"))
   for (const file of pluginFiles) {
     clearRequireCache(file)
@@ -55,6 +56,7 @@ const loadPlugins = () => {
       console.error(chalk.red(`Failed to load plugin ${file}:`), err)
     }
   }
+
   global.plugins = Object.fromEntries(plugins.entries())
   global.autoPlugins = autoPlugins
   console.log(chalk.cyan(`Plugins Reloaded: ${plugins.size} command plugins, ${autoPlugins.length} auto plugins`))
@@ -131,7 +133,7 @@ const handler = async (kiicode, m) => {
     const metadata = isGroup ? await kiicode.groupMetadata(m.chat).catch(() => null) : null
     const groupName = metadata?.subject || "-"
     const participants = metadata?.participants || []
-    const groupAdmins = isGroup ? participants.filter((v) => v.admin).map((v) => v.id || v.jid) : []
+    const groupAdmins = isGroup ? participants.filter((v) => v.admin).map((v) => v.jid) : []
     const isBotAdmins = isGroup ? groupAdmins.includes(botNumber) : false
     const isAdmins = isGroup ? groupAdmins.includes(sender) : false
     const isOwner =
@@ -153,11 +155,21 @@ const handler = async (kiicode, m) => {
       saveDB()
     } else db.users[idUser].updated_at = new Date().toISOString()
 
+    const typeChat = m.mtype
+    const typeInfo = /image|video|audio|sticker|document/.test(typeChat) ? `Media (${typeChat})` : `Text: ${body}`
+    const logStyle = isGroup ? chalk.cyan : chalk.white
+
+    console.log(chalk.cyan(`──────────────────────`))
+    console.log(logStyle(`• Sender  : ${idUser}`))
+    console.log(logStyle(`• Name    : ${pushname}`))
+    console.log(logStyle(`• Group   : ${isGroup ? groupName + " (" + idGroup + ")" : "Private Chat"}`))
+    console.log(logStyle(`• Message : ${typeInfo}`))
+    console.log(chalk.cyan(`──────────────────────`))
+
     for (const plugin of autoPlugins) {
-      if (typeof plugin === "function")
-        await plugin(m, { kiicode, botNumber, participants, isAdmins, isOwner, isGroup, db, isBotAdmins })
+      if (typeof plugin === "function") await plugin(m, { kiicode })
       else if (typeof plugin.before === "function") {
-        const result = await plugin.before(m, { kiicode, botNumber, participants, isAdmins, isOwner, isGroup, db, isBotAdmins })
+        const result = await plugin.before(m, { kiicode, isAdmins, db })
         if (!result) return
       }
     }
@@ -173,10 +185,10 @@ const handler = async (kiicode, m) => {
 
     for (const [regex, plugin] of plugins.entries()) {
       if (regex.test(commandName)) {
-        if (plugin.owner && sender !== ownerJid) return m.reply("Command ini khusus Owner!")
-        if (plugin.group && !isGroup) return m.reply("Command ini hanya untuk Group!")
-        if (plugin.admin && !isAdmins) return m.reply("Command ini hanya untuk Admin!")
-        if (plugin.botadmin && !isBotAdmins) return m.reply("Bot harus Admin untuk menjalankan perintah ini!")
+        if (plugin.owner && sender !== ownerJid) return m.reply("*Command ini khusus Owner!*")
+        if (plugin.group && !isGroup) return m.reply("*Command ini hanya untuk Group!*")
+        if (plugin.admin && !isAdmins) return m.reply("*Command ini hanya untuk Admin!*")
+        if (plugin.botadmin && !isBotAdmins) return m.reply("*Bot harus Admin untuk menjalankan perintah ini!*")
         await plugin(m, {
           kiicode,
           args,
@@ -192,9 +204,6 @@ const handler = async (kiicode, m) => {
           isOwner,
           participants,
           isAdmins,
-          isGroup,
-          mentionUser,
-          pushname
         })
         break
       }
